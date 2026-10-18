@@ -8,10 +8,20 @@ export interface FirecrawlRuntimeState {
   readonly startedAt?: string | undefined;
 }
 
+export interface McpRuntimeState {
+  readonly owned: boolean;
+  readonly pid?: number | undefined;
+  readonly port: number;
+  readonly mcpUrl: string;
+  readonly firecrawlApiUrl: string;
+  readonly startedAt?: string | undefined;
+}
+
 export interface RuntimeState {
   readonly version: 1;
   readonly updatedAt: string;
   readonly firecrawl?: FirecrawlRuntimeState | undefined;
+  readonly mcp?: McpRuntimeState | undefined;
 }
 
 const DEFAULT_STATE_FILE_NAME = ".openai-firecrawl-state.json";
@@ -57,12 +67,70 @@ export function updateFirecrawlState(
   const updated: RuntimeState = {
     version: 1,
     updatedAt: new Date().toISOString(),
-    ...(existing?.firecrawl ? { firecrawl: existing.firecrawl } : {}),
-    ...(firecrawl !== undefined ? { firecrawl } : {}),
+    ...(existing?.mcp ? { mcp: existing.mcp } : {}),
+    ...(firecrawl !== undefined
+      ? { firecrawl }
+      : existing?.firecrawl
+        ? { firecrawl: existing.firecrawl }
+        : {}),
   };
 
   writeRuntimeState(updated, filePath);
   return updated;
+}
+
+export function updateMcpState(
+  mcp: McpRuntimeState | undefined,
+  filePath: string = getDefaultStateFilePath()
+): RuntimeState {
+  const existing = readRuntimeState(filePath);
+  const updated: RuntimeState = {
+    version: 1,
+    updatedAt: new Date().toISOString(),
+    ...(existing?.firecrawl ? { firecrawl: existing.firecrawl } : {}),
+    ...(mcp !== undefined ? { mcp } : existing?.mcp ? { mcp: existing.mcp } : {}),
+  };
+
+  writeRuntimeState(updated, filePath);
+  return updated;
+}
+
+export function clearFirecrawlState(filePath: string = getDefaultStateFilePath()): boolean {
+  const existing = readRuntimeState(filePath);
+  if (!existing) {
+    return false;
+  }
+
+  if (existing.mcp) {
+    const updated: RuntimeState = {
+      version: 1,
+      updatedAt: new Date().toISOString(),
+      mcp: existing.mcp,
+    };
+    writeRuntimeState(updated, filePath);
+    return true;
+  }
+
+  return clearRuntimeState(filePath);
+}
+
+export function clearMcpState(filePath: string = getDefaultStateFilePath()): boolean {
+  const existing = readRuntimeState(filePath);
+  if (!existing) {
+    return false;
+  }
+
+  if (existing.firecrawl) {
+    const updated: RuntimeState = {
+      version: 1,
+      updatedAt: new Date().toISOString(),
+      firecrawl: existing.firecrawl,
+    };
+    writeRuntimeState(updated, filePath);
+    return true;
+  }
+
+  return clearRuntimeState(filePath);
 }
 
 export function clearRuntimeState(filePath: string = getDefaultStateFilePath()): boolean {

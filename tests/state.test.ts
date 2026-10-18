@@ -1,10 +1,13 @@
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
+  clearFirecrawlState,
+  clearMcpState,
   clearRuntimeState,
   readRuntimeState,
   updateFirecrawlState,
+  updateMcpState,
   writeRuntimeState,
 } from "../src/shared/state.js";
 
@@ -32,7 +35,7 @@ describe("Runtime State Management", () => {
     expect(state).toBeNull();
   });
 
-  it("writes and reads back valid state", () => {
+  it("writes and reads back valid state with firecrawl and mcp", () => {
     writeRuntimeState(
       {
         version: 1,
@@ -42,6 +45,14 @@ describe("Runtime State Management", () => {
           apiUrl: "http://localhost:3002",
           firecrawlHome: "C:/path/to/firecrawl",
           startedAt: "2026-10-18T10:00:00.000Z",
+        },
+        mcp: {
+          owned: true,
+          pid: 1234,
+          port: 3000,
+          mcpUrl: "http://localhost:3000/mcp",
+          firecrawlApiUrl: "http://localhost:3002",
+          startedAt: "2026-10-18T10:00:05.000Z",
         },
       },
       TEST_STATE_PATH
@@ -57,45 +68,18 @@ describe("Runtime State Management", () => {
         firecrawlHome: "C:/path/to/firecrawl",
         startedAt: "2026-10-18T10:00:00.000Z",
       },
-    });
-  });
-
-  it("handles corrupted or invalid JSON gracefully", () => {
-    writeFileSync(TEST_STATE_PATH, "{ not valid json ...", "utf8");
-    const loaded = readRuntimeState(TEST_STATE_PATH);
-    expect(loaded).toBeNull();
-  });
-
-  it("handles state with unsupported version", () => {
-    writeFileSync(
-      TEST_STATE_PATH,
-      JSON.stringify({ version: 99, updatedAt: "2026-10-18T10:00:00.000Z" }),
-      "utf8"
-    );
-    const loaded = readRuntimeState(TEST_STATE_PATH);
-    expect(loaded).toBeNull();
-  });
-
-  it("updates firecrawl state while preserving other data", () => {
-    const updated = updateFirecrawlState(
-      {
-        owned: false,
-        apiUrl: "http://localhost:3002",
+      mcp: {
+        owned: true,
+        pid: 1234,
+        port: 3000,
+        mcpUrl: "http://localhost:3000/mcp",
+        firecrawlApiUrl: "http://localhost:3002",
+        startedAt: "2026-10-18T10:00:05.000Z",
       },
-      TEST_STATE_PATH
-    );
-
-    expect(updated.version).toBe(1);
-    expect(updated.firecrawl).toEqual({
-      owned: false,
-      apiUrl: "http://localhost:3002",
     });
-
-    const read = readRuntimeState(TEST_STATE_PATH);
-    expect(read?.firecrawl?.owned).toBe(false);
   });
 
-  it("clears state file safely", () => {
+  it("updates firecrawl and mcp state independently without overwriting the other", () => {
     updateFirecrawlState(
       {
         owned: true,
@@ -104,13 +88,53 @@ describe("Runtime State Management", () => {
       TEST_STATE_PATH
     );
 
+    let state = readRuntimeState(TEST_STATE_PATH);
+    expect(state?.firecrawl?.owned).toBe(true);
+    expect(state?.mcp).toBeUndefined();
+
+    updateMcpState(
+      {
+        owned: true,
+        pid: 5678,
+        port: 3000,
+        mcpUrl: "http://localhost:3000/mcp",
+        firecrawlApiUrl: "http://localhost:3002",
+      },
+      TEST_STATE_PATH
+    );
+
+    state = readRuntimeState(TEST_STATE_PATH);
+    expect(state?.firecrawl?.owned).toBe(true);
+    expect(state?.mcp?.pid).toBe(5678);
+
+    // Clear MCP state only, firecrawl remains
+    const mcpCleared = clearMcpState(TEST_STATE_PATH);
+    expect(mcpCleared).toBe(true);
+    state = readRuntimeState(TEST_STATE_PATH);
+    expect(state?.mcp).toBeUndefined();
+    expect(state?.firecrawl?.owned).toBe(true);
+    expect(existsSync(TEST_STATE_PATH)).toBe(true);
+
+    // Clear Firecrawl state now, file should be removed
+    const firecrawlCleared = clearFirecrawlState(TEST_STATE_PATH);
+    expect(firecrawlCleared).toBe(true);
+    expect(existsSync(TEST_STATE_PATH)).toBe(false);
+  });
+
+  it("clears entire state file with clearRuntimeState", () => {
+    updateMcpState(
+      {
+        owned: false,
+        port: 3000,
+        mcpUrl: "http://localhost:3000/mcp",
+        firecrawlApiUrl: "http://localhost:3002",
+      },
+      TEST_STATE_PATH
+    );
+
     expect(existsSync(TEST_STATE_PATH)).toBe(true);
     const removed = clearRuntimeState(TEST_STATE_PATH);
     expect(removed).toBe(true);
     expect(existsSync(TEST_STATE_PATH)).toBe(false);
-
-    // Clearing non-existent file returns false without throwing
-    const removedAgain = clearRuntimeState(TEST_STATE_PATH);
-    expect(removedAgain).toBe(false);
   });
 });

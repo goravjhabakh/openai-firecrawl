@@ -1,5 +1,6 @@
 import { loadConfig } from "../config/index.js";
 import { ensureFirecrawlRunning } from "../firecrawl/index.js";
+import { ensureMcpRunning } from "../mcp/index.js";
 
 async function main(): Promise<void> {
   try {
@@ -13,19 +14,35 @@ async function main(): Promise<void> {
       `Firecrawl Home    : ${config.firecrawlHome ?? "(not set, external instance expected)"}`
     );
     console.log("");
-    console.log("Checking Firecrawl readiness...");
 
-    const result = await ensureFirecrawlRunning(config);
-
-    console.log("");
-    console.log(`[OK] Firecrawl Status: ${result.status}`);
+    // Step 1: Ensure Firecrawl is running
+    console.log("1. Checking Firecrawl readiness...");
+    const firecrawlResult = await ensureFirecrawlRunning(config);
+    console.log(`[OK] Firecrawl Status: ${firecrawlResult.status}`);
     console.log(
-      `     - Managed by this project: ${result.owned ? "YES (owned)" : "NO (external)"}`
+      `     - Managed by this project: ${firecrawlResult.owned ? "YES (owned)" : "NO (external)"}`
     );
-    console.log(`     - Detail: ${result.detail}`);
+    console.log(`     - Detail: ${firecrawlResult.detail}`);
     console.log("");
-    console.log("Firecrawl lifecycle check passed.");
-    console.log("Next phases will connect the official MCP server and ChatGPT link.");
+
+    // Step 2: Ensure official Firecrawl MCP server is running
+    console.log("2. Checking Firecrawl MCP server readiness...");
+    const mcpResult = await ensureMcpRunning(config);
+    console.log(`[OK] MCP Status: ${mcpResult.status}`);
+    console.log(
+      `     - Managed by this project: ${mcpResult.owned ? "YES (owned)" : "NO (external)"}`
+    );
+    if (mcpResult.pid !== undefined) {
+      console.log(`     - PID: ${mcpResult.pid}`);
+    }
+    console.log(`     - Endpoint: ${mcpResult.mcpUrl}`);
+    console.log(`     - Detail: ${mcpResult.detail}`);
+    console.log("");
+
+    console.log("------------------------------------------------------------");
+    console.log("SUCCESS: Self-hosted Firecrawl and Firecrawl MCP are ready!");
+    console.log(`MCP Server URL: ${mcpResult.mcpUrl}`);
+    console.log("Next phase will configure the ChatGPT tunnel / custom MCP link.");
   } catch (error) {
     console.error("");
     if (error instanceof Error) {

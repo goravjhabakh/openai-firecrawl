@@ -1,7 +1,7 @@
 import type { AppConfig } from "../config/index.js";
 import {
   type RuntimeState,
-  clearRuntimeState,
+  clearFirecrawlState,
   readRuntimeState,
   updateFirecrawlState,
 } from "../shared/state.js";
@@ -213,7 +213,7 @@ export async function stopManagedFirecrawl(
   deps: LifecycleDependencies = {}
 ): Promise<StopManagedFirecrawlResult> {
   const readState = deps.readState ?? readRuntimeState;
-  const clearState = deps.clearState ?? clearRuntimeState;
+  const clearState = deps.clearState ?? clearFirecrawlState;
   const stopCompose = deps.stopCompose ?? stopComposeProject;
   const checkDocker = deps.checkDocker ?? checkDockerAvailability;
 

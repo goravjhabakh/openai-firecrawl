@@ -1,5 +1,6 @@
 import { loadConfig } from "../config/index.js";
-import { runDoctorChecks } from "../firecrawl/index.js";
+import { runDoctorChecks as runFirecrawlDoctorChecks } from "../firecrawl/index.js";
+import { runMcpDoctorChecks } from "../mcp/index.js";
 
 async function main(): Promise<void> {
   try {
@@ -8,17 +9,27 @@ async function main(): Promise<void> {
     console.log("openai-firecrawl doctor");
     console.log("-----------------------");
 
-    const report = await runDoctorChecks(config);
+    // 1. Run Firecrawl checks
+    const firecrawlReport = await runFirecrawlDoctorChecks(config);
 
-    for (const item of report.items) {
+    // 2. Run MCP checks
+    const mcpItems = await runMcpDoctorChecks(config);
+
+    const allItems = [...firecrawlReport.items, ...mcpItems];
+    let allPassed = firecrawlReport.success;
+
+    for (const item of allItems) {
       console.log(`[${item.status}] ${item.title}`);
       for (const line of item.details) {
         console.log(`       ${line}`);
       }
       console.log("");
+      if (item.status === "FAIL") {
+        allPassed = false;
+      }
     }
 
-    if (!report.success) {
+    if (!allPassed) {
       console.error("Doctor detected one or more critical issues that require attention.");
       process.exit(1);
     }
