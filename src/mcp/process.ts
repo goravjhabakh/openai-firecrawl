@@ -30,10 +30,12 @@ export interface SpawnMcpResult {
 /**
  * Resolve the official firecrawl-mcp executable entry point.
  * Inspects package.json bin definition first ("firecrawl-mcp": "dist/index.js"),
- * then resolves the full file path.
+ * then resolves the full file path relative to this package's installed location.
  */
-export function resolveFirecrawlMcpEntry(baseDir: string = process.cwd()): McpProcessResolution {
-  const require = createRequire(resolve(baseDir, "package.json"));
+export function resolveFirecrawlMcpEntry(baseDir?: string): McpProcessResolution {
+  const require = baseDir
+    ? createRequire(resolve(baseDir, "package.json"))
+    : createRequire(import.meta.url);
 
   let pkgJsonPath: string;
   try {

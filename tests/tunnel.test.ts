@@ -1,10 +1,14 @@
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { AppConfig } from "../src/config/index.js";
 import type { RuntimeState, TunnelRuntimeState } from "../src/shared/state.js";
 import {
   TunnelLifecycleError,
   ensureTunnelRunning,
+  getDefaultTunnelClientBinPath,
   probeTunnelReadiness,
+  resolveTunnelClientBinary,
   runTunnelDoctorChecks,
   stopManagedTunnel,
 } from "../src/tunnel/index.js";
@@ -405,5 +409,29 @@ describe("runTunnelDoctorChecks", () => {
 
     expect(items.every((i) => i.status === "PASS")).toBe(true);
     expect(items.length).toBe(4);
+  });
+});
+
+describe("resolveTunnelClientBinary", () => {
+  it("resolves user-level tunnel-client binary path under LOCALAPPDATA", async () => {
+    const fixtureLocalAppData = resolve(process.cwd(), "tests", "fixtures", "localappdata");
+    const binDir = join(fixtureLocalAppData, "openai-firecrawl", "bin");
+    const exePath = getDefaultTunnelClientBinPath({ LOCALAPPDATA: fixtureLocalAppData });
+
+    mkdirSync(binDir, { recursive: true });
+    writeFileSync(exePath, "mock-binary", "utf8");
+
+    try {
+      const resolved = await resolveTunnelClientBinary(
+        { tunnelClientBin: undefined },
+        async () => ({ exitCode: 0, stdout: "tunnel-client v0.0.16", stderr: "" }),
+        { LOCALAPPDATA: fixtureLocalAppData }
+      );
+
+      expect(resolved.binPath).toBe(exePath);
+      expect(resolved.version).toBe("tunnel-client v0.0.16");
+    } finally {
+      rmSync(fixtureLocalAppData, { recursive: true, force: true });
+    }
   });
 });

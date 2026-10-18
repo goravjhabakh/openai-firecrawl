@@ -51,13 +51,17 @@ Acts as the MCP client and invokes Firecrawl tools (`firecrawl_scrape`, `firecra
 
 Establishes an outbound-only HTTPS long-polling connection from the developer machine to `https://api.openai.com`, receives MCP JSON-RPC requests for `CONTROL_PLANE_TUNNEL_ID`, and forwards them to `http://localhost:<MCP_PORT>/mcp`.
 
+- Resolved via:
+  1. `TUNNEL_CLIENT_BIN`
+  2. `%LOCALAPPDATA%\openai-firecrawl\bin\tunnel-client.exe`
+  3. System `PATH`
 - Exposes a loopback-only health and admin server at `http://127.0.0.1:<TUNNEL_HEALTH_PORT>` (`/healthz`, `/readyz`, `/health?details=true`, `/api/status`, `/ui`).
 - Started without `--allow-remote-ui` so the admin interface remains strictly local.
 - On Windows, `openai-firecrawl` sets `TUNNEL_CLIENT_CODEX_APP_SERVER_CMD=disabled` when spawning `tunnel-client` in the background so its internal Codex bridge does not open an interactive console window.
 
 ### Official Firecrawl MCP Server (`firecrawl-mcp`)
 
-Pinned as a local dependency (`firecrawl-mcp@3.30.3`) and spawned directly via `node.exe` in Streamable HTTP mode (`HTTP_STREAMABLE_SERVER=true`, `HOST=localhost`, `PORT=<MCP_PORT>`) pointed at `FIRECRAWL_API_URL`.
+Pinned as a package dependency (`firecrawl-mcp@3.30.3`), resolved relative to `@goravjhabakh/openai-firecrawl` (`import.meta.url`), and spawned directly via `node.exe` in Streamable HTTP mode (`HTTP_STREAMABLE_SERVER=true`, `HOST=localhost`, `PORT=<MCP_PORT>`) pointed at `FIRECRAWL_API_URL`.
 
 ### Self-hosted Firecrawl
 
@@ -67,18 +71,19 @@ Performs scraping, search, mapping, and crawling inside the user's existing Dock
 
 Coordinates configuration, health probes, process spawning, diagnostics, and conservative teardown across the three local layers:
 
-- `src/config/` — `.env` loading and validation (`ConfigError`)
+- `src/cli.ts` — Unified CLI entrypoint (`init`, `start`, `doctor`, `stop`, `--version`, `--help`)
+- `src/cli/` — `init.ts`, `start.ts`, `doctor.ts`, and `stop.ts` command handlers
+- `src/config/` — User-level `%APPDATA%\openai-firecrawl\.env` loading and validation (`ConfigError`)
 - `src/firecrawl/` — Docker/Compose inspection, `/v0/health/readiness` probing, and Compose lifecycle
 - `src/mcp/` — `firecrawl-mcp` resolution, Streamable HTTP MCP `initialize` probing, and Node child lifecycle
 - `src/tunnel/` — `tunnel-client` binary resolution, `/readyz` + `/api/status` probing, and tunnel child lifecycle
-- `src/shared/` — `execFile` wrapper and `.openai-firecrawl-state.json` persistence
-- `src/cli/` — `start.ts`, `doctor.ts`, and `stop.ts` entrypoints
+- `src/shared/` — `execFile` wrapper and `%LOCALAPPDATA%\openai-firecrawl\state.json` persistence
 
 ## Process Ownership & Teardown Safety
 
-Ownership is persisted in `.openai-firecrawl-state.json`:
+Ownership is persisted in `%LOCALAPPDATA%\openai-firecrawl\state.json`:
 
-- **Startup order:** `1. Firecrawl` → `2. firecrawl-mcp` → `3. tunnel-client`
-- **Shutdown order (`pnpm stop`):** `1. tunnel-client` → `2. firecrawl-mcp` → `3. Firecrawl`
-- If any component is already running when `pnpm start` executes (or if Firecrawl Compose containers already exist in `FIRECRAWL_HOME`), `openai-firecrawl` records `owned: false` and reuses it.
-- During `pnpm stop`, only components with `owned: true` are stopped. For `firecrawl-mcp` and `tunnel-client`, Windows process identity is verified against `Win32_Process` (`Name` and `CommandLine`) before running `taskkill /PID <pid> /T /F` to guard against PID reuse.
+- **Startup order (`openai-firecrawl start`):** `1. Firecrawl` → `2. firecrawl-mcp` → `3. tunnel-client`
+- **Shutdown order (`openai-firecrawl stop`):** `1. tunnel-client` → `2. firecrawl-mcp` → `3. Firecrawl`
+- If any component is already running when `openai-firecrawl start` executes (or if Firecrawl Compose containers already exist in `FIRECRAWL_HOME`), `openai-firecrawl` records `owned: false` and reuses it.
+- During `openai-firecrawl stop`, only components with `owned: true` are stopped. For `firecrawl-mcp` and `tunnel-client`, Windows process identity is verified against `Win32_Process` (`Name` and `CommandLine`) before running `taskkill /PID <pid> /T /F` to guard against PID reuse.

@@ -1,4 +1,4 @@
-import type { AppConfig } from "../config/index.js";
+import { type AppConfig, getDefaultConfigFilePath } from "../config/index.js";
 import {
   type McpRuntimeState,
   type RuntimeState,
@@ -87,7 +87,7 @@ export async function ensureMcpRunning(
 
   if (probeRes.status === "port-occupied") {
     throw new McpLifecycleError(
-      `Port ${config.mcpPort} is already in use by another service (${probeRes.detail ?? "non-Firecrawl service"}). Cannot start Firecrawl MCP server. Please stop the conflicting service or configure a different MCP_PORT in .env.`
+      `Port ${config.mcpPort} is already in use by another service (${probeRes.detail ?? "non-Firecrawl service"}). Cannot start Firecrawl MCP server. Please stop the conflicting service or configure a different MCP_PORT in "${getDefaultConfigFilePath()}".`
     );
   }
 

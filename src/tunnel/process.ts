@@ -1,8 +1,9 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { resolve } from "node:path";
+import { join } from "node:path";
 import type { AppConfig } from "../config/index.js";
 import { type CommandResult, runCommand } from "../shared/exec.js";
+import { getDefaultStateDir } from "../shared/state.js";
 
 export class TunnelProcessError extends Error {
   constructor(message: string) {
@@ -35,15 +36,25 @@ export interface TunnelDoctorPreflightResult {
 }
 
 /**
+ * Resolve the default user-level tunnel-client binary path on Windows:
+ * %LOCALAPPDATA%\openai-firecrawl\bin\tunnel-client.exe
+ */
+export function getDefaultTunnelClientBinPath(env: NodeJS.ProcessEnv = process.env): string {
+  const exeName = process.platform === "win32" ? "tunnel-client.exe" : "tunnel-client";
+  return join(getDefaultStateDir(env), "bin", exeName);
+}
+
+/**
  * Resolve the tunnel-client binary on Windows.
  * Resolution precedence:
  * 1. Explicit config.tunnelClientBin (TUNNEL_CLIENT_BIN)
- * 2. ./bin/tunnel-client.exe (repo-local drop-in)
+ * 2. User-level %LOCALAPPDATA%\openai-firecrawl\bin\tunnel-client.exe
  * 3. tunnel-client.exe on PATH (via where.exe on Windows, which on POSIX)
  */
 export async function resolveTunnelClientBinary(
   config: Pick<AppConfig, "tunnelClientBin">,
-  exec: typeof runCommand = runCommand
+  exec: typeof runCommand = runCommand,
+  env: NodeJS.ProcessEnv = process.env
 ): Promise<TunnelBinaryResolution> {
   const candidates: string[] = [];
 
@@ -51,13 +62,9 @@ export async function resolveTunnelClientBinary(
     candidates.push(config.tunnelClientBin);
   }
 
-  // Repo-local bin
-  const localExe = resolve(
-    process.cwd(),
-    "bin",
-    process.platform === "win32" ? "tunnel-client.exe" : "tunnel-client"
-  );
-  candidates.push(localExe);
+  // User-level bin directory (%LOCALAPPDATA%\openai-firecrawl\bin\tunnel-client.exe)
+  const localAppDataBin = getDefaultTunnelClientBinPath(env);
+  candidates.push(localAppDataBin);
 
   // PATH resolution via where.exe (Windows) or which (Unix)
   if (process.platform === "win32") {
@@ -88,7 +95,7 @@ export async function resolveTunnelClientBinary(
 
   if (!foundBin) {
     throw new TunnelProcessError(
-      `OpenAI "tunnel-client" binary was not found. Please download "tunnel-client-windows-amd64.zip" from Platform settings (https://platform.openai.com/settings/organization/tunnels) or GitHub (https://github.com/openai/tunnel-client/releases/latest), place "tunnel-client.exe" on PATH or in "./bin/tunnel-client.exe", or configure TUNNEL_CLIENT_BIN in .env.`
+      `OpenAI "tunnel-client" binary was not found. Please download "tunnel-client-windows-amd64.zip" from Platform settings (https://platform.openai.com/settings/organization/tunnels) or GitHub (https://github.com/openai/tunnel-client/releases/latest), place "tunnel-client.exe" on PATH or at "${localAppDataBin}", or configure TUNNEL_CLIENT_BIN in your config.`
     );
   }
 

@@ -1,5 +1,6 @@
-import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { dirname, join } from "node:path";
 
 export interface FirecrawlRuntimeState {
   readonly owned: boolean;
@@ -35,10 +36,24 @@ export interface RuntimeState {
   readonly tunnel?: TunnelRuntimeState | undefined;
 }
 
-const DEFAULT_STATE_FILE_NAME = ".openai-firecrawl-state.json";
+export const STATE_APP_DIR_NAME = "openai-firecrawl";
+export const DEFAULT_STATE_FILE_NAME = "state.json";
 
-export function getDefaultStateFilePath(): string {
-  return resolve(process.cwd(), DEFAULT_STATE_FILE_NAME);
+/**
+ * Resolve the user-level local runtime data directory on Windows:
+ * %LOCALAPPDATA%\openai-firecrawl
+ */
+export function getDefaultStateDir(env: NodeJS.ProcessEnv = process.env): string {
+  const localAppData = env.LOCALAPPDATA?.trim() || join(homedir(), "AppData", "Local");
+  return join(localAppData, STATE_APP_DIR_NAME);
+}
+
+/**
+ * Resolve the user-level runtime state file path on Windows:
+ * %LOCALAPPDATA%\openai-firecrawl\state.json
+ */
+export function getDefaultStateFilePath(env: NodeJS.ProcessEnv = process.env): string {
+  return join(getDefaultStateDir(env), DEFAULT_STATE_FILE_NAME);
 }
 
 export function readRuntimeState(
@@ -66,6 +81,10 @@ export function writeRuntimeState(
   state: RuntimeState,
   filePath: string = getDefaultStateFilePath()
 ): void {
+  const dir = dirname(filePath);
+  if (!existsSync(dir)) {
+    mkdirSync(dir, { recursive: true });
+  }
   const content = JSON.stringify(state, null, 2);
   writeFileSync(filePath, content, "utf8");
 }

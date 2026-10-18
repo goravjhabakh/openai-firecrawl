@@ -1,5 +1,13 @@
-import { describe, expect, it } from "vitest";
-import { ConfigError, parseConfig } from "../src/config/index.js";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { join, resolve } from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
+import {
+  ConfigError,
+  getDefaultConfigDir,
+  getDefaultConfigFilePath,
+  loadConfig,
+  parseConfig,
+} from "../src/config/index.js";
 
 describe("parseConfig", () => {
   it("uses default values when environment variables are omitted", () => {
@@ -129,5 +137,64 @@ describe("parseConfig", () => {
         TUNNEL_HEALTH_PORT: "3000",
       })
     ).toThrowError(ConfigError);
+  });
+});
+
+describe("Global Config Path & Precedence", () => {
+  const testDir = resolve(process.cwd(), "tests", "fixtures", "config");
+  const testEnvPath = resolve(testDir, ".env");
+
+  afterEach(() => {
+    if (existsSync(testEnvPath)) {
+      rmSync(testEnvPath, { force: true });
+    }
+  });
+
+  it("resolves user-level config path under APPDATA", () => {
+    const dir = getDefaultConfigDir({ APPDATA: "C:\\Users\\TestUser\\AppData\\Roaming" });
+    const file = getDefaultConfigFilePath({ APPDATA: "C:\\Users\\TestUser\\AppData\\Roaming" });
+
+    expect(dir).toBe(join("C:\\Users\\TestUser\\AppData\\Roaming", "openai-firecrawl"));
+    expect(file).toBe(join("C:\\Users\\TestUser\\AppData\\Roaming", "openai-firecrawl", ".env"));
+  });
+
+  it("loads values from global config file over defaults", () => {
+    mkdirSync(testDir, { recursive: true });
+    writeFileSync(
+      testEnvPath,
+      [
+        "FIRECRAWL_API_URL=http://localhost:3999",
+        "FIRECRAWL_HOME=C:/custom/firecrawl",
+        "MCP_PORT=4100",
+        "TUNNEL_HEALTH_PORT=9100",
+      ].join("\n"),
+      "utf8"
+    );
+
+    const config = loadConfig(testEnvPath, {});
+    expect(config.firecrawlApiUrl).toBe("http://localhost:3999");
+    expect(config.firecrawlHome).toBe("C:/custom/firecrawl");
+    expect(config.mcpPort).toBe(4100);
+    expect(config.tunnelHealthPort).toBe(9100);
+  });
+
+  it("applies process environment variables over global config file values", () => {
+    mkdirSync(testDir, { recursive: true });
+    writeFileSync(
+      testEnvPath,
+      ["FIRECRAWL_API_URL=http://localhost:3999", "MCP_PORT=4100", "TUNNEL_HEALTH_PORT=9100"].join(
+        "\n"
+      ),
+      "utf8"
+    );
+
+    const config = loadConfig(testEnvPath, {
+      FIRECRAWL_API_URL: "http://localhost:4500",
+      MCP_PORT: "5500",
+    });
+
+    expect(config.firecrawlApiUrl).toBe("http://localhost:4500");
+    expect(config.mcpPort).toBe(5500);
+    expect(config.tunnelHealthPort).toBe(9100);
   });
 });

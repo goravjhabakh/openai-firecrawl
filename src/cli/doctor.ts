@@ -3,7 +3,7 @@ import { runDoctorChecks as runFirecrawlDoctorChecks } from "../firecrawl/index.
 import { runMcpDoctorChecks } from "../mcp/index.js";
 import { runTunnelDoctorChecks } from "../tunnel/index.js";
 
-async function main(): Promise<void> {
+export async function runDoctorCommand(): Promise<number> {
   try {
     const config = loadConfig();
 
@@ -35,10 +35,11 @@ async function main(): Promise<void> {
 
     if (!allPassed) {
       console.error("Doctor detected one or more critical issues that require attention.");
-      process.exit(1);
+      return 1;
     }
 
     console.log("Doctor check completed successfully.");
+    return 0;
   } catch (error) {
     console.error("Doctor failed with unexpected error:");
     if (error instanceof Error) {
@@ -46,8 +47,6 @@ async function main(): Promise<void> {
     } else {
       console.error("[FAIL] Unknown error:", error);
     }
-    process.exit(1);
+    return 1;
   }
 }
-
-void main();

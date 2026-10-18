@@ -1,11 +1,13 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   clearFirecrawlState,
   clearMcpState,
   clearRuntimeState,
   clearTunnelState,
+  getDefaultStateDir,
+  getDefaultStateFilePath,
   readRuntimeState,
   updateFirecrawlState,
   updateMcpState,
@@ -178,5 +180,33 @@ describe("Runtime State Management", () => {
     const removed = clearRuntimeState(TEST_STATE_PATH);
     expect(removed).toBe(true);
     expect(existsSync(TEST_STATE_PATH)).toBe(false);
+  });
+
+  it("resolves user-level state path under LOCALAPPDATA", () => {
+    const dir = getDefaultStateDir({ LOCALAPPDATA: "C:\\Users\\TestUser\\AppData\\Local" });
+    const file = getDefaultStateFilePath({ LOCALAPPDATA: "C:\\Users\\TestUser\\AppData\\Local" });
+
+    expect(dir).toBe(join("C:\\Users\\TestUser\\AppData\\Local", "openai-firecrawl"));
+    expect(file).toBe(
+      join("C:\\Users\\TestUser\\AppData\\Local", "openai-firecrawl", "state.json")
+    );
+  });
+
+  it("automatically creates missing parent directories when writing state", () => {
+    const nestedStatePath = resolve(TEST_DIR, "nested-dir", "sub", "state.json");
+    if (existsSync(resolve(TEST_DIR, "nested-dir"))) {
+      rmSync(resolve(TEST_DIR, "nested-dir"), { recursive: true, force: true });
+    }
+
+    writeRuntimeState(
+      {
+        version: 1,
+        updatedAt: "2026-10-18T10:00:00.000Z",
+      },
+      nestedStatePath
+    );
+
+    expect(existsSync(nestedStatePath)).toBe(true);
+    rmSync(resolve(TEST_DIR, "nested-dir"), { recursive: true, force: true });
   });
 });

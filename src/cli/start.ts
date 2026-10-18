@@ -1,20 +1,22 @@
-import { loadConfig } from "../config/index.js";
+import { getDefaultConfigFilePath, loadConfig } from "../config/index.js";
 import { ensureFirecrawlRunning } from "../firecrawl/index.js";
 import { ensureMcpRunning } from "../mcp/index.js";
 import { ensureTunnelRunning } from "../tunnel/index.js";
 
-async function main(): Promise<void> {
+export async function runStartCommand(): Promise<number> {
   try {
-    const config = loadConfig();
+    const configPath = getDefaultConfigFilePath();
+    const config = loadConfig(configPath);
 
     console.log("openai-firecrawl start");
     console.log("----------------------");
+    console.log(`Config File       : ${configPath}`);
     console.log(`Firecrawl API URL : ${config.firecrawlApiUrl}`);
     console.log(`MCP Port          : ${config.mcpPort}`);
     console.log(
       `Firecrawl Home    : ${config.firecrawlHome ?? "(not set, external instance expected)"}`
     );
-    console.log(`Tunnel ID         : ${config.tunnelId ?? "(not set, will prompt if required)"}`);
+    console.log(`Tunnel ID         : ${config.tunnelId ?? "(not set)"}`);
     console.log(
       `Tunnel API Key    : ${config.hasTunnelApiKey ? `Configured via ${config.tunnelApiKeyEnvVar}` : "(not set)"}`
     );
@@ -74,6 +76,8 @@ async function main(): Promise<void> {
     console.log(`4. Select or enter Tunnel ID: ${tunnelResult.tunnelId}`);
     console.log("5. Choose 'No authentication' (local keyless firecrawl-mcp).");
     console.log("6. Save/Create plugin and start querying your local Firecrawl!");
+
+    return 0;
   } catch (error) {
     console.error("");
     if (error instanceof Error) {
@@ -81,8 +85,6 @@ async function main(): Promise<void> {
     } else {
       console.error("[FAIL] Unknown error while starting:", error);
     }
-    process.exit(1);
+    return 1;
   }
 }
-
-void main();

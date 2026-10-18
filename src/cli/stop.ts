@@ -4,13 +4,13 @@ import { stopManagedFirecrawl } from "../firecrawl/index.js";
 import { stopManagedMcp } from "../mcp/index.js";
 import { stopManagedTunnel } from "../tunnel/index.js";
 
-async function main(): Promise<void> {
+export async function runStopCommand(): Promise<number> {
   try {
     let config: AppConfig;
     try {
       config = loadConfig();
     } catch {
-      // If config cannot be loaded from .env, fall back to empty defaults so stop can inspect state file
+      // If config cannot be loaded, fall back to defaults so stop can still inspect state file
       config = {
         firecrawlApiUrl: "http://localhost:3002",
         firecrawlHome: undefined,
@@ -48,6 +48,8 @@ async function main(): Promise<void> {
     if (firecrawlResult.firecrawlHome) {
       console.log(`       Location: ${firecrawlResult.firecrawlHome}`);
     }
+
+    return 0;
   } catch (error) {
     console.error("");
     if (error instanceof Error) {
@@ -55,8 +57,6 @@ async function main(): Promise<void> {
     } else {
       console.error("[FAIL] Unknown error while stopping:", error);
     }
-    process.exit(1);
+    return 1;
   }
 }
-
-void main();

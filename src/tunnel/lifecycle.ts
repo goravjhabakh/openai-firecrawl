@@ -1,4 +1,4 @@
-import type { AppConfig } from "../config/index.js";
+import { type AppConfig, getDefaultConfigFilePath } from "../config/index.js";
 import {
   type RuntimeState,
   type TunnelRuntimeState,
@@ -101,15 +101,16 @@ export async function ensureTunnelRunning(
   const clearState = deps.clearState ?? clearTunnelState;
 
   // 1. Validate required tunnel configuration
+  const configFilePath = getDefaultConfigFilePath();
   if (!config.tunnelId) {
     throw new TunnelLifecycleError(
-      "CONTROL_PLANE_TUNNEL_ID is not configured. Please create or copy a tunnel ID from Platform settings (https://platform.openai.com/settings/organization/tunnels) and set CONTROL_PLANE_TUNNEL_ID in .env."
+      `CONTROL_PLANE_TUNNEL_ID is not configured. Please create or copy a tunnel ID from Platform settings (https://platform.openai.com/settings/organization/tunnels) and set CONTROL_PLANE_TUNNEL_ID in "${configFilePath}".`
     );
   }
 
   if (!config.hasTunnelApiKey) {
     throw new TunnelLifecycleError(
-      "No OpenAI runtime API key configured for tunnel-client. Please create an API key in Platform settings (https://platform.openai.com/settings/organization/api-keys) with Tunnels Read+Use permissions and set CONTROL_PLANE_API_KEY in .env."
+      `No OpenAI runtime API key configured for tunnel-client. Please create an API key in Platform settings (https://platform.openai.com/settings/organization/api-keys) with Tunnels Read+Use permissions and set CONTROL_PLANE_API_KEY in "${configFilePath}".`
     );
   }
 
@@ -121,7 +122,7 @@ export async function ensureTunnelRunning(
 
   if (probeRes.status === "port-occupied") {
     throw new TunnelLifecycleError(
-      `Port ${config.tunnelHealthPort} is occupied by another service (${probeRes.detail ?? "non-tunnel service"}). Cannot start OpenAI Secure MCP Tunnel. Please stop the conflicting service or configure a different TUNNEL_HEALTH_PORT in .env.`
+      `Port ${config.tunnelHealthPort} is occupied by another service (${probeRes.detail ?? "non-tunnel service"}). Cannot start OpenAI Secure MCP Tunnel. Please stop the conflicting service or configure a different TUNNEL_HEALTH_PORT in "${configFilePath}".`
     );
   }
 
@@ -312,12 +313,14 @@ export async function runTunnelDoctorChecks(
   const configDetails: string[] = [];
   let configPass = true;
 
+  const configFilePath = getDefaultConfigFilePath();
+
   if (config.tunnelId) {
     configDetails.push(`Tunnel ID: ${config.tunnelId}`);
   } else {
     configPass = false;
     configDetails.push(
-      "CONTROL_PLANE_TUNNEL_ID is not configured in .env.",
+      `CONTROL_PLANE_TUNNEL_ID is not configured in "${configFilePath}".`,
       "Get a tunnel ID at https://platform.openai.com/settings/organization/tunnels"
     );
   }
@@ -327,7 +330,7 @@ export async function runTunnelDoctorChecks(
   } else {
     configPass = false;
     configDetails.push(
-      "CONTROL_PLANE_API_KEY (or OPENAI_API_KEY) is not configured in .env.",
+      `CONTROL_PLANE_API_KEY (or OPENAI_API_KEY) is not configured in "${configFilePath}".`,
       "Create a runtime key with Tunnels Read+Use at https://platform.openai.com/settings/organization/api-keys"
     );
   }

@@ -1,4 +1,5 @@
-import type { AppConfig } from "../config/index.js";
+import { existsSync } from "node:fs";
+import { type AppConfig, getDefaultConfigFilePath } from "../config/index.js";
 import {
   type RuntimeState,
   clearFirecrawlState,
@@ -127,7 +128,7 @@ export async function ensureFirecrawlRunning(
   const homeValidation = validateHome(config.firecrawlHome);
   if (!homeValidation.valid || !config.firecrawlHome) {
     throw new FirecrawlLifecycleError(
-      `Firecrawl is not reachable at "${config.firecrawlApiUrl}", and automatic startup is not possible because ${homeValidation.error ?? "FIRECRAWL_HOME is not set"}. Please set FIRECRAWL_HOME in .env to your self-hosted Firecrawl directory or start Firecrawl manually.`
+      `Firecrawl is not reachable at "${config.firecrawlApiUrl}", and automatic startup is not possible because ${homeValidation.error ?? "FIRECRAWL_HOME is not set"}. Please set FIRECRAWL_HOME in "${getDefaultConfigFilePath()}" to your self-hosted Firecrawl directory or start Firecrawl manually.`
     );
   }
 
@@ -195,7 +196,7 @@ export async function ensureFirecrawlRunning(
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     throw new FirecrawlLifecycleError(
-      `Firecrawl started with docker compose up -d, but readiness check failed: ${msg}. Run "pnpm stop" to tear down this instance or check container logs.`
+      `Firecrawl started with docker compose up -d, but readiness check failed: ${msg}. Run "openai-firecrawl stop" to tear down this instance or check container logs.`
     );
   }
 
@@ -281,10 +282,13 @@ export async function runDoctorChecks(
   let allPassed = true;
 
   // 1. Config Check
+  const configFilePath = getDefaultConfigFilePath();
+  const configFileExists = existsSync(configFilePath);
   items.push({
     status: "PASS",
     title: "Configuration",
     details: [
+      `Config file: ${configFilePath} (${configFileExists ? "present" : "not found, using environment/defaults; run 'openai-firecrawl init' to create"})`,
       `FIRECRAWL_API_URL: ${config.firecrawlApiUrl}`,
       `MCP_PORT: ${config.mcpPort}`,
       `FIRECRAWL_HOME: ${config.firecrawlHome ?? "(not set)"}`,
