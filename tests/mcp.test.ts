@@ -13,6 +13,11 @@ const DEFAULT_CONFIG: AppConfig = {
   firecrawlApiUrl: "http://localhost:3002",
   firecrawlHome: "C:/path/to/firecrawl",
   mcpPort: 3000,
+  tunnelId: undefined,
+  hasTunnelApiKey: false,
+  tunnelApiKeyEnvVar: undefined,
+  tunnelClientBin: undefined,
+  tunnelHealthPort: 8080,
 };
 
 describe("Mcp Probe", () => {

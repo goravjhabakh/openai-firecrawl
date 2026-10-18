@@ -1,6 +1,7 @@
 import { loadConfig } from "../config/index.js";
 import { runDoctorChecks as runFirecrawlDoctorChecks } from "../firecrawl/index.js";
 import { runMcpDoctorChecks } from "../mcp/index.js";
+import { runTunnelDoctorChecks } from "../tunnel/index.js";
 
 async function main(): Promise<void> {
   try {
@@ -15,7 +16,10 @@ async function main(): Promise<void> {
     // 2. Run MCP checks
     const mcpItems = await runMcpDoctorChecks(config);
 
-    const allItems = [...firecrawlReport.items, ...mcpItems];
+    // 3. Run Tunnel checks
+    const tunnelItems = await runTunnelDoctorChecks(config);
+
+    const allItems = [...firecrawlReport.items, ...mcpItems, ...tunnelItems];
     let allPassed = firecrawlReport.success;
 
     for (const item of allItems) {

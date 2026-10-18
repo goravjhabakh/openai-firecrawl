@@ -52,9 +52,17 @@ Expected `.env` values:
 FIRECRAWL_API_URL=http://localhost:3002
 FIRECRAWL_HOME=C:/path/to/firecrawl
 MCP_PORT=3000
+
+# OpenAI Secure MCP Tunnel
+CONTROL_PLANE_TUNNEL_ID=tunnel_0123456789abcdef0123456789abcdef
+CONTROL_PLANE_API_KEY=sk-...
+# Optional overrides:
+# TUNNEL_CLIENT_BIN=C:/path/to/tunnel-client.exe
+# TUNNEL_HEALTH_PORT=8080
 ```
 
 A Firecrawl Cloud API key should not be required for the self-hosted path.
+
 
 ## Requirements
 

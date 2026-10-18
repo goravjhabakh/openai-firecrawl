@@ -17,11 +17,22 @@ export interface McpRuntimeState {
   readonly startedAt?: string | undefined;
 }
 
+export interface TunnelRuntimeState {
+  readonly owned: boolean;
+  readonly pid?: number | undefined;
+  readonly tunnelId: string;
+  readonly mcpUrl: string;
+  readonly healthPort: number;
+  readonly healthUrl: string;
+  readonly startedAt?: string | undefined;
+}
+
 export interface RuntimeState {
   readonly version: 1;
   readonly updatedAt: string;
   readonly firecrawl?: FirecrawlRuntimeState | undefined;
   readonly mcp?: McpRuntimeState | undefined;
+  readonly tunnel?: TunnelRuntimeState | undefined;
 }
 
 const DEFAULT_STATE_FILE_NAME = ".openai-firecrawl-state.json";
@@ -68,6 +79,7 @@ export function updateFirecrawlState(
     version: 1,
     updatedAt: new Date().toISOString(),
     ...(existing?.mcp ? { mcp: existing.mcp } : {}),
+    ...(existing?.tunnel ? { tunnel: existing.tunnel } : {}),
     ...(firecrawl !== undefined
       ? { firecrawl }
       : existing?.firecrawl
@@ -88,7 +100,25 @@ export function updateMcpState(
     version: 1,
     updatedAt: new Date().toISOString(),
     ...(existing?.firecrawl ? { firecrawl: existing.firecrawl } : {}),
+    ...(existing?.tunnel ? { tunnel: existing.tunnel } : {}),
     ...(mcp !== undefined ? { mcp } : existing?.mcp ? { mcp: existing.mcp } : {}),
+  };
+
+  writeRuntimeState(updated, filePath);
+  return updated;
+}
+
+export function updateTunnelState(
+  tunnel: TunnelRuntimeState | undefined,
+  filePath: string = getDefaultStateFilePath()
+): RuntimeState {
+  const existing = readRuntimeState(filePath);
+  const updated: RuntimeState = {
+    version: 1,
+    updatedAt: new Date().toISOString(),
+    ...(existing?.firecrawl ? { firecrawl: existing.firecrawl } : {}),
+    ...(existing?.mcp ? { mcp: existing.mcp } : {}),
+    ...(tunnel !== undefined ? { tunnel } : existing?.tunnel ? { tunnel: existing.tunnel } : {}),
   };
 
   writeRuntimeState(updated, filePath);
@@ -101,11 +131,12 @@ export function clearFirecrawlState(filePath: string = getDefaultStateFilePath()
     return false;
   }
 
-  if (existing.mcp) {
+  if (existing.mcp || existing.tunnel) {
     const updated: RuntimeState = {
       version: 1,
       updatedAt: new Date().toISOString(),
-      mcp: existing.mcp,
+      ...(existing.mcp ? { mcp: existing.mcp } : {}),
+      ...(existing.tunnel ? { tunnel: existing.tunnel } : {}),
     };
     writeRuntimeState(updated, filePath);
     return true;
@@ -120,11 +151,32 @@ export function clearMcpState(filePath: string = getDefaultStateFilePath()): boo
     return false;
   }
 
-  if (existing.firecrawl) {
+  if (existing.firecrawl || existing.tunnel) {
     const updated: RuntimeState = {
       version: 1,
       updatedAt: new Date().toISOString(),
-      firecrawl: existing.firecrawl,
+      ...(existing.firecrawl ? { firecrawl: existing.firecrawl } : {}),
+      ...(existing.tunnel ? { tunnel: existing.tunnel } : {}),
+    };
+    writeRuntimeState(updated, filePath);
+    return true;
+  }
+
+  return clearRuntimeState(filePath);
+}
+
+export function clearTunnelState(filePath: string = getDefaultStateFilePath()): boolean {
+  const existing = readRuntimeState(filePath);
+  if (!existing) {
+    return false;
+  }
+
+  if (existing.firecrawl || existing.mcp) {
+    const updated: RuntimeState = {
+      version: 1,
+      updatedAt: new Date().toISOString(),
+      ...(existing.firecrawl ? { firecrawl: existing.firecrawl } : {}),
+      ...(existing.mcp ? { mcp: existing.mcp } : {}),
     };
     writeRuntimeState(updated, filePath);
     return true;

@@ -1,6 +1,7 @@
 import { loadConfig } from "../config/index.js";
 import { ensureFirecrawlRunning } from "../firecrawl/index.js";
 import { ensureMcpRunning } from "../mcp/index.js";
+import { ensureTunnelRunning } from "../tunnel/index.js";
 
 async function main(): Promise<void> {
   try {
@@ -13,6 +14,11 @@ async function main(): Promise<void> {
     console.log(
       `Firecrawl Home    : ${config.firecrawlHome ?? "(not set, external instance expected)"}`
     );
+    console.log(`Tunnel ID         : ${config.tunnelId ?? "(not set, will prompt if required)"}`);
+    console.log(
+      `Tunnel API Key    : ${config.hasTunnelApiKey ? `Configured via ${config.tunnelApiKeyEnvVar}` : "(not set)"}`
+    );
+    console.log(`Tunnel Health Port: ${config.tunnelHealthPort}`);
     console.log("");
 
     // Step 1: Ensure Firecrawl is running
@@ -39,10 +45,35 @@ async function main(): Promise<void> {
     console.log(`     - Detail: ${mcpResult.detail}`);
     console.log("");
 
-    console.log("------------------------------------------------------------");
-    console.log("SUCCESS: Self-hosted Firecrawl and Firecrawl MCP are ready!");
-    console.log(`MCP Server URL: ${mcpResult.mcpUrl}`);
-    console.log("Next phase will configure the ChatGPT tunnel / custom MCP link.");
+    // Step 3: Ensure OpenAI Secure MCP Tunnel is running
+    console.log("3. Checking OpenAI Secure MCP Tunnel readiness...");
+    const tunnelResult = await ensureTunnelRunning(config);
+    console.log(`[OK] Tunnel Status: ${tunnelResult.status}`);
+    console.log(
+      `     - Managed by this project: ${tunnelResult.owned ? "YES (owned)" : "NO (external)"}`
+    );
+    if (tunnelResult.pid !== undefined) {
+      console.log(`     - PID: ${tunnelResult.pid}`);
+    }
+    console.log(`     - Tunnel ID: ${tunnelResult.tunnelId}`);
+    console.log(`     - Local Health/Admin UI: ${tunnelResult.healthUrl}/ui`);
+    console.log(`     - Detail: ${tunnelResult.detail}`);
+    console.log("");
+
+    console.log("============================================================");
+    console.log("SUCCESS: Self-hosted Firecrawl, MCP, and Tunnel are READY!");
+    console.log("============================================================");
+    console.log(`Local MCP Endpoint: ${mcpResult.mcpUrl}`);
+    console.log(`Tunnel ID         : ${tunnelResult.tunnelId}`);
+    console.log(`Tunnel Admin UI   : ${tunnelResult.healthUrl}/ui`);
+    console.log("");
+    console.log("ChatGPT Connection Steps:");
+    console.log("1. Open ChatGPT -> Settings -> Connectors (or ChatGPT Plugins).");
+    console.log("2. Click 'Add custom MCP server'.");
+    console.log("3. Choose 'Connection: Tunnel'.");
+    console.log(`4. Select or enter Tunnel ID: ${tunnelResult.tunnelId}`);
+    console.log("5. Choose 'No authentication' (local keyless firecrawl-mcp).");
+    console.log("6. Save/Create plugin and start querying your local Firecrawl!");
   } catch (error) {
     console.error("");
     if (error instanceof Error) {

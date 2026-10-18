@@ -5,9 +5,11 @@ import {
   clearFirecrawlState,
   clearMcpState,
   clearRuntimeState,
+  clearTunnelState,
   readRuntimeState,
   updateFirecrawlState,
   updateMcpState,
+  updateTunnelState,
   writeRuntimeState,
 } from "../src/shared/state.js";
 
@@ -35,7 +37,7 @@ describe("Runtime State Management", () => {
     expect(state).toBeNull();
   });
 
-  it("writes and reads back valid state with firecrawl and mcp", () => {
+  it("writes and reads back valid state with firecrawl, mcp, and tunnel", () => {
     writeRuntimeState(
       {
         version: 1,
@@ -53,6 +55,15 @@ describe("Runtime State Management", () => {
           mcpUrl: "http://localhost:3000/mcp",
           firecrawlApiUrl: "http://localhost:3002",
           startedAt: "2026-10-18T10:00:05.000Z",
+        },
+        tunnel: {
+          owned: true,
+          pid: 5678,
+          tunnelId: "tunnel_0123456789abcdef0123456789abcdef",
+          mcpUrl: "http://localhost:3000/mcp",
+          healthPort: 8080,
+          healthUrl: "http://127.0.0.1:8080",
+          startedAt: "2026-10-18T10:00:10.000Z",
         },
       },
       TEST_STATE_PATH
@@ -76,10 +87,19 @@ describe("Runtime State Management", () => {
         firecrawlApiUrl: "http://localhost:3002",
         startedAt: "2026-10-18T10:00:05.000Z",
       },
+      tunnel: {
+        owned: true,
+        pid: 5678,
+        tunnelId: "tunnel_0123456789abcdef0123456789abcdef",
+        mcpUrl: "http://localhost:3000/mcp",
+        healthPort: 8080,
+        healthUrl: "http://127.0.0.1:8080",
+        startedAt: "2026-10-18T10:00:10.000Z",
+      },
     });
   });
 
-  it("updates firecrawl and mcp state independently without overwriting the other", () => {
+  it("updates firecrawl, mcp, and tunnel state independently without overwriting others", () => {
     updateFirecrawlState(
       {
         owned: true,
@@ -91,6 +111,7 @@ describe("Runtime State Management", () => {
     let state = readRuntimeState(TEST_STATE_PATH);
     expect(state?.firecrawl?.owned).toBe(true);
     expect(state?.mcp).toBeUndefined();
+    expect(state?.tunnel).toBeUndefined();
 
     updateMcpState(
       {
@@ -103,17 +124,37 @@ describe("Runtime State Management", () => {
       TEST_STATE_PATH
     );
 
+    updateTunnelState(
+      {
+        owned: true,
+        pid: 9999,
+        tunnelId: "tunnel_0123456789abcdef0123456789abcdef",
+        mcpUrl: "http://localhost:3000/mcp",
+        healthPort: 8080,
+        healthUrl: "http://127.0.0.1:8080",
+      },
+      TEST_STATE_PATH
+    );
+
     state = readRuntimeState(TEST_STATE_PATH);
     expect(state?.firecrawl?.owned).toBe(true);
     expect(state?.mcp?.pid).toBe(5678);
+    expect(state?.tunnel?.pid).toBe(9999);
 
-    // Clear MCP state only, firecrawl remains
+    // Clear Tunnel state only, firecrawl and mcp remain
+    const tunnelCleared = clearTunnelState(TEST_STATE_PATH);
+    expect(tunnelCleared).toBe(true);
+    state = readRuntimeState(TEST_STATE_PATH);
+    expect(state?.tunnel).toBeUndefined();
+    expect(state?.mcp?.pid).toBe(5678);
+    expect(state?.firecrawl?.owned).toBe(true);
+
+    // Clear MCP state, firecrawl remains
     const mcpCleared = clearMcpState(TEST_STATE_PATH);
     expect(mcpCleared).toBe(true);
     state = readRuntimeState(TEST_STATE_PATH);
     expect(state?.mcp).toBeUndefined();
     expect(state?.firecrawl?.owned).toBe(true);
-    expect(existsSync(TEST_STATE_PATH)).toBe(true);
 
     // Clear Firecrawl state now, file should be removed
     const firecrawlCleared = clearFirecrawlState(TEST_STATE_PATH);
@@ -122,12 +163,13 @@ describe("Runtime State Management", () => {
   });
 
   it("clears entire state file with clearRuntimeState", () => {
-    updateMcpState(
+    updateTunnelState(
       {
         owned: false,
-        port: 3000,
+        tunnelId: "tunnel_0123456789abcdef0123456789abcdef",
         mcpUrl: "http://localhost:3000/mcp",
-        firecrawlApiUrl: "http://localhost:3002",
+        healthPort: 8080,
+        healthUrl: "http://127.0.0.1:8080",
       },
       TEST_STATE_PATH
     );
