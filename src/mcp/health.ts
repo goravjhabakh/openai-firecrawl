@@ -36,7 +36,7 @@ function createInitializePayload(): string {
       capabilities: {},
       clientInfo: {
         name: "openai-firecrawl-probe",
-        version: "0.1.0",
+        version: "1.0.0",
       },
     },
   });

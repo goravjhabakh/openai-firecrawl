@@ -2,96 +2,84 @@
 
 ## Stack
 
-- Node.js
-- TypeScript
+- Node.js (`>= 22.0.0`)
+- TypeScript (strict mode, `NodeNext`)
 - pnpm
-- Biome
-- Vitest
+- Biome (formatting & linting)
+- Vitest (unit testing)
 
-Use strict TypeScript and small modules.
-
-## Planned source layout
+## Source Layout
 
 ```text
 src/
 ├── cli/
-│   ├── start.ts
-│   ├── doctor.ts
-│   └── stop.ts
+│   ├── start.ts      # Orchestrates Firecrawl -> MCP -> Tunnel startup
+│   ├── doctor.ts     # Runs non-destructive diagnostics across all layers
+│   └── stop.ts       # Stops managed Tunnel -> MCP -> Firecrawl safely
 ├── config/
+│   └── index.ts      # .env loader and pure parseConfig validator
 ├── firecrawl/
+│   ├── docker.ts     # Docker CLI/daemon checks and Compose inspection
+│   ├── health.ts     # Firecrawl HTTP readiness probes and polling
+│   ├── lifecycle.ts  # ensureFirecrawlRunning, stopManagedFirecrawl, runDoctorChecks
+│   └── index.ts
 ├── mcp/
+│   ├── health.ts     # Streamable HTTP MCP initialize probe & port conflict check
+│   ├── process.ts    # firecrawl-mcp resolution, detached spawn, CIM PID check
+│   ├── lifecycle.ts  # ensureMcpRunning, stopManagedMcp, runMcpDoctorChecks
+│   └── index.ts
 ├── tunnel/
+│   ├── health.ts     # Loopback /readyz, /healthz, /api/status, /health probes
+│   ├── process.ts    # tunnel-client binary resolution, preflight, detached spawn, CIM PID check
+│   ├── lifecycle.ts  # ensureTunnelRunning, stopManagedTunnel, runTunnelDoctorChecks
+│   └── index.ts
 └── shared/
+    ├── exec.ts       # Promise-based execFile command runner
+    ├── state.ts      # .openai-firecrawl-state.json reader/writer
+    └── index.ts
 ```
 
-CLI files should coordinate actions. Reusable logic belongs in the internal modules.
-
-## Setup
+## Local Setup
 
 ```bash
 pnpm install
+cp .env.example .env
 ```
 
-Create `.env` from `.env.example` once the foundation phase adds it.
+Configure `.env` with your local `FIRECRAWL_API_URL`, `FIRECRAWL_HOME`, `MCP_PORT`, `CONTROL_PLANE_TUNNEL_ID`, and `CONTROL_PLANE_API_KEY`. Place `tunnel-client.exe` in `./bin/tunnel-client.exe` or on `PATH`.
 
-Expected values:
-
-```env
-FIRECRAWL_API_URL=http://localhost:3002
-FIRECRAWL_HOME=C:/path/to/firecrawl
-MCP_PORT=3000
-```
-
-## Quality commands
+## Commands
 
 ```bash
+# Runtime commands
+pnpm start
+pnpm run doctor
+pnpm stop
+
+# Quality checks
 pnpm check
+pnpm check:write
 pnpm typecheck
 pnpm test
 ```
 
-## Testing strategy
+## Testing Strategy
 
-### Unit tests
+### Unit Tests (`tests/*.test.ts`)
 
-Use Vitest for small logic that benefits from deterministic tests, such as:
+Deterministic Vitest suites test:
 
-- configuration validation
-- lifecycle decisions
-- process ownership decisions
+- `tests/config.test.ts` — URL normalization, port validation, port collision detection, tunnel ID regex, and secret-safe API key detection
+- `tests/state.test.ts` — `.openai-firecrawl-state.json` persistence and independent layer clearing
+- `tests/firecrawl.test.ts` — Firecrawl readiness probes, Compose container inspection, and ownership decisions
+- `tests/mcp.test.ts` — MCP JSON-RPC/SSE `initialize` probes, port conflict handling, and PID ownership lifecycle
+- `tests/tunnel.test.ts` — `tunnel-client` health probes (`/readyz`, `/api/status`, misconfiguration detection) and lifecycle safety
 
-Keep tests focused. No coverage target is required.
+### Integration Verification
 
-### Integration verification
+End-to-end verification uses real local services on Windows 11:
 
-Use real services for the important path:
-
-1. self-hosted Firecrawl
-2. official Firecrawl MCP server
-3. MCP Inspector
-4. ChatGPT custom MCP connection
-
-Validate the MCP endpoint independently before debugging ChatGPT.
-
-## AI-agent workflow
-
-OpenCode is the primary coding agent.
-
-For each phase:
-
-1. read `AGENTS.md`
-2. read the core docs
-3. read the current phase spec
-4. implement only that phase
-5. run relevant checks/tests
-6. summarize changes and unresolved issues
-7. update lasting docs only when behavior changed
-
-Work directly on `main` for this small project. Keep commits small and meaningful.
-
-## Dependency policy
-
-Prefer built-in Node APIs and established official packages.
-
-Add a dependency only when it clearly reduces complexity or improves reliability.
+1. Self-hosted Firecrawl Docker Compose stack
+2. Official `firecrawl-mcp` server (`http://localhost:<MCP_PORT>/mcp`)
+3. Official `tunnel-client.exe` (`http://127.0.0.1:<TUNNEL_HEALTH_PORT>/readyz`)
+4. ChatGPT custom MCP server connection (`Connection: Tunnel`)

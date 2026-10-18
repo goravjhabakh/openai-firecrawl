@@ -1,6 +1,6 @@
 # Troubleshooting
 
-This file should stay practical and short. Add entries only for failures we actually encounter.
+Run `pnpm run doctor` first whenever something fails. It checks every layer (Configuration, Docker, Firecrawl, MCP, Tunnel, and Process Ownership) and prints specific remediation steps.
 
 ## Docker is unavailable
 
@@ -11,62 +11,55 @@ docker version
 docker compose version
 ```
 
-Ensure Docker Desktop is running.
+Ensure Docker Desktop is running before executing `pnpm start`.
 
-## Firecrawl cannot be reached
+## Firecrawl cannot be reached or fails to start
 
-Check the configured endpoint:
-
-```text
-FIRECRAWL_API_URL
-```
-
-Then verify the existing Firecrawl stack is running.
-
-Useful checks:
+1. Verify `FIRECRAWL_API_URL` in `.env` (default `http://localhost:3002`).
+2. If you want `openai-firecrawl` to start Firecrawl automatically, ensure `FIRECRAWL_HOME` points to your self-hosted Firecrawl checkout containing `docker-compose.yaml` (or `compose.yaml`).
+3. If pre-existing Firecrawl containers exist in `FIRECRAWL_HOME` but the API is unhealthy, `openai-firecrawl` will not overwrite or tear down your containers. Inspect your Firecrawl logs directly:
 
 ```bash
-docker ps
+cd C:/path/to/firecrawl
 docker compose ps
+docker compose logs --tail=100
 ```
 
-If auto-start is enabled through `FIRECRAWL_HOME`, verify that the path points to the correct Firecrawl checkout.
+## `MCP_PORT` or `TUNNEL_HEALTH_PORT` conflict
 
-## Firecrawl starts but never becomes ready
+`openai-firecrawl` verifies service signatures before starting or reusing processes:
 
-Inspect the Firecrawl containers and logs from the Firecrawl repository.
+- If `MCP_PORT` (default `3000`) is occupied by another web server (such as Next.js or Express), `pnpm start` fails safely without killing the foreign process. Either stop the other server or change `MCP_PORT` in `.env`.
+- If `TUNNEL_HEALTH_PORT` (default `8080`) is occupied by another service, or by a `tunnel-client` instance bound to a different `tunnel_id` or MCP URL, stop the conflicting process or change `TUNNEL_HEALTH_PORT` in `.env`.
 
-Do not debug ChatGPT or MCP until the Firecrawl API itself is healthy.
+## `tunnel-client` binary not found
 
-## MCP server does not start
+`openai-firecrawl` does not auto-download executables from the internet.
+
+1. Download `tunnel-client-vX.Y.Z-windows-amd64.zip` from [Platform Settings → Tunnels](https://platform.openai.com/settings/organization/tunnels) or [GitHub Releases](https://github.com/openai/tunnel-client/releases/latest).
+2. Extract `tunnel-client.exe` into `./bin/tunnel-client.exe` inside this repository (or place it on your system `PATH`, or set `TUNNEL_CLIENT_BIN=C:/path/to/tunnel-client.exe` in `.env`).
+
+## Tunnel fails to become ready (`/readyz` timeout or exit)
 
 Verify:
 
-- Node.js is available
-- the official Firecrawl MCP package can run
-- `FIRECRAWL_API_URL` points to the self-hosted instance
-- `MCP_PORT` is free
+1. `CONTROL_PLANE_TUNNEL_ID` in `.env` matches the `tunnel_...` ID created in [OpenAI Platform Tunnels](https://platform.openai.com/settings/organization/tunnels).
+2. `CONTROL_PLANE_API_KEY` in `.env` is a valid OpenAI API key whose principal has Tunnels **Read** + **Use** permissions.
+3. `firecrawl-mcp` is healthy on `http://localhost:<MCP_PORT>/mcp`.
+4. Run `pnpm run doctor` to execute `tunnel-client doctor` preflight diagnostics.
 
-Use MCP Inspector to validate the server independently.
+## ChatGPT cannot connect or invoke tools
 
-## ChatGPT cannot connect
+Verify in order:
 
-First verify:
+1. `pnpm start` completed with `SUCCESS` and `pnpm run doctor` passes all checks.
+2. Open `http://127.0.0.1:8080/ui` (or your configured `TUNNEL_HEALTH_PORT`) to confirm the local tunnel is connected and polling.
+3. In [OpenAI Platform Tunnels](https://platform.openai.com/settings/organization/tunnels), confirm the tunnel is linked to your target **ChatGPT workspace**.
+4. In ChatGPT (**Settings → Connectors → Add custom MCP server**), confirm:
+   - **Connection:** `Tunnel`
+   - **Tunnel ID:** matches `CONTROL_PLANE_TUNNEL_ID`
+   - **Authentication:** `No authentication`
 
-1. Firecrawl is healthy.
-2. Firecrawl MCP is healthy.
-3. MCP Inspector can connect.
+## `pnpm stop` leaves Firecrawl, MCP, or Tunnel running
 
-Only then troubleshoot the ChatGPT custom MCP/tunnel configuration.
-
-Because ChatGPT's MCP connection workflow can change, use current OpenAI documentation during implementation and troubleshooting.
-
-## `pnpm stop` leaves Firecrawl running
-
-This can be correct.
-
-If Firecrawl was already running before `openai-firecrawl` started, the project should not stop it.
-
-## Port conflict
-
-Check which process owns the configured MCP port and either stop that process or change `MCP_PORT`.
+This is intentional when those processes were already running before `pnpm start` began (`owned: false` in `.openai-firecrawl-state.json`). `openai-firecrawl` only stops processes that it started itself.

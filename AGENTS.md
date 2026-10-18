@@ -56,7 +56,7 @@ Target commands:
 
 ```bash
 pnpm start
-pnpm doctor
+pnpm run doctor
 pnpm stop
 
 pnpm check

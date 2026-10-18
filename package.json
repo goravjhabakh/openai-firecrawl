@@ -1,8 +1,14 @@
 {
   "name": "openai-firecrawl",
-  "version": "0.1.0",
+  "version": "1.0.0",
+  "description": "Local Windows-first orchestrator connecting ChatGPT to self-hosted Firecrawl via the official Firecrawl MCP server and OpenAI Secure MCP Tunnel.",
+  "license": "MIT",
   "private": true,
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/goravjhabakh/openai-firecrawl.git"
+  },
   "packageManager": "pnpm@12.8.1",
   "engines": {
     "node": ">=22.0.0"

@@ -2,7 +2,11 @@ node_modules/
 dist/
 coverage/
 .env
+.env.*
+!.env.example
 *.local
+*.log
 .turbo/
 .openai-firecrawl-state.json
-bin
+bin/
+tests/fixtures/
