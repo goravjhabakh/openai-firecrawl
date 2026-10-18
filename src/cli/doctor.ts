@@ -1,22 +1,33 @@
 import { loadConfig } from "../config/index.js";
+import { runDoctorChecks } from "../firecrawl/index.js";
 
 async function main(): Promise<void> {
   try {
     const config = loadConfig();
 
-    console.log("openai-firecrawl doctor (Phase 1 Foundation)");
-    console.log("-------------------------------------------");
-    console.log("[PASS] Configuration valid:");
-    console.log(`       - FIRECRAWL_API_URL: ${config.firecrawlApiUrl}`);
-    console.log(`       - MCP_PORT: ${config.mcpPort}`);
-    console.log(
-      `       - FIRECRAWL_HOME: ${config.firecrawlHome ?? "(not set, external instance expected)"}`
-    );
-    console.log("[INFO] Service and container health checks will be implemented in Phase 2.");
+    console.log("openai-firecrawl doctor");
+    console.log("-----------------------");
+
+    const report = await runDoctorChecks(config);
+
+    for (const item of report.items) {
+      console.log(`[${item.status}] ${item.title}`);
+      for (const line of item.details) {
+        console.log(`       ${line}`);
+      }
+      console.log("");
+    }
+
+    if (!report.success) {
+      console.error("Doctor detected one or more critical issues that require attention.");
+      process.exit(1);
+    }
+
+    console.log("Doctor check completed successfully.");
   } catch (error) {
-    console.error("Doctor detected issues:");
+    console.error("Doctor failed with unexpected error:");
     if (error instanceof Error) {
-      console.error(`[FAIL] Configuration error: ${error.message}`);
+      console.error(`[FAIL] ${error.message}`);
     } else {
       console.error("[FAIL] Unknown error:", error);
     }

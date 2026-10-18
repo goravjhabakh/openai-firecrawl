@@ -7,7 +7,7 @@
   },
   "files": {
     "ignoreUnknown": false,
-    "ignore": ["node_modules", "dist", "coverage", ".env"]
+    "ignore": ["node_modules", "dist", "coverage", ".env", ".openai-firecrawl-state.json"]
   },
   "formatter": {
     "enabled": true,
