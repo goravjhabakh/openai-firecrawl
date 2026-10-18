@@ -206,11 +206,18 @@ export function spawnTunnelProcess(options: SpawnTunnelProcessOptions): SpawnTun
     "info",
   ];
 
-  // Secrets are passed strictly through the child process environment
+  // Secrets are passed strictly through the child process environment.
+  // On Windows, tunnel-client has an internal Codex bridge MVP in its admin UI module that, by default,
+  // spawns `codex app-server` via `cmd.exe /c codex app-server`. If npm's `codex.cmd` wrapper is installed on PATH,
+  // cmd.exe allocates an interactive console window under Windows Terminal / conhost.
+  // Supplying `TUNNEL_CLIENT_CODEX_APP_SERVER_CMD: "disabled"` suppresses this child shell spawn in background daemon mode.
   const childEnv: NodeJS.ProcessEnv = {
     ...process.env,
     ...options.env,
     CONTROL_PLANE_API_KEY: process.env.CONTROL_PLANE_API_KEY || process.env.OPENAI_API_KEY || "",
+    ...(process.platform === "win32" && !process.env.TUNNEL_CLIENT_CODEX_APP_SERVER_CMD
+      ? { TUNNEL_CLIENT_CODEX_APP_SERVER_CMD: "disabled" }
+      : {}),
   };
 
   const child = spawn(binPath, childArgs, {

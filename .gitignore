@@ -5,3 +5,4 @@ coverage/
 *.local
 .turbo/
 .openai-firecrawl-state.json
+bin
