@@ -16,7 +16,7 @@ Before implementing a phase, read:
 - `docs/development.md`
 - the relevant file under `specs/`
 
-Use `.opencode/skills/mcp-development/SKILL.md` for MCP-related work.
+Use `.agents/skills/mcp-development/SKILL.md` for MCP-related work.
 
 ## Stack
 

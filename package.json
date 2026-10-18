@@ -1,0 +1,26 @@
+{
+  "name": "openai-firecrawl",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.8.1",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "start": "tsx src/cli/start.ts",
+    "doctor": "tsx src/cli/doctor.ts",
+    "stop": "tsx src/cli/stop.ts",
+    "check": "biome check .",
+    "check:write": "biome check --write .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@types/node": "^22.13.10",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2",
+    "vitest": "^3.0.8"
+  }
+}
